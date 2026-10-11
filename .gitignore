@@ -1,0 +1,11 @@
+data/
+node_modules/
+*.bak*
+__pycache__/
+*.log
+# secrets and runtime state never belong in the repo
+config.json
+*.session
+telegram.json
+watchdog-hidden.vbs
+.env*

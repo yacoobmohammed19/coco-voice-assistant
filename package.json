@@ -1,0 +1,13 @@
+{
+  "name": "coco-voice-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-hosted voice assistant: Gemini Live calls (PWA, Telegram, Twilio) + headless Claude Code background jobs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "setup": "node setup.js",
+    "health": "node -e \"fetch('http://127.0.0.1:8787/health').then(r=>r.json()).then(j=>console.log(j))\""
+  },
+  "engines": { "node": ">=22" }
+}

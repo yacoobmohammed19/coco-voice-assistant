@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "vault": {
+      "command": "npx",
+      "args": ["-y", "@bitbonsai/mcpvault", "C:\Users\you\Documents\Vault"]
+    },
+    "emailer": {
+      "command": "python",
+      "args": ["C:\path\to\your-emailer\server.py"]
+    },
+    "crm": {
+      "command": "node",
+      "args": ["C:\path\to\your-crm-mcp\dist\index.js"]
+    }
+  }
+}

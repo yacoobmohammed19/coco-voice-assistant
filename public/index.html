@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#111113">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Coco">
+<title>Coco</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* CocoCorp brand tokens (cococorp-brand skill): loud register, black ground, pink leads, blue supports.
+     --end is a functional exception: phone convention says hang-up is red. */
+  :root {
+    --coco-pink:#EC4899; --coco-blue:#2563EB;
+    --coco-black:#111113; --coco-ink:#1A1A1D; --coco-paper:#FBFAF8; --coco-muted:#6B6B72; --coco-white:#FFFFFF;
+    --end:#E5484D;
+    --font-display:"Bebas Neue","Oswald","Arial Narrow",sans-serif;
+    --font-body:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+    --radius:16px; --pill:999px;
+    --surface:rgba(251,250,248,.05); --surface-2:rgba(251,250,248,.09); --edge:rgba(251,250,248,.10); --soft:rgba(251,250,248,.62);
+    --safe-t:env(safe-area-inset-top); --safe-b:env(safe-area-inset-bottom);
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; background:var(--coco-black); color:var(--coco-paper); font:16px/1.5 var(--font-body); -webkit-font-smoothing:antialiased; overscroll-behavior:none; }
+  body { min-height:100dvh; }
+  .hidden { display:none !important; }
+  button { font-family:var(--font-body); cursor:pointer; border:none; background:none; color:inherit; padding:0; }
+  svg { display:block; }
+  .screen { max-width:520px; margin:0 auto; min-height:100dvh; padding:calc(14px + var(--safe-t)) 16px calc(18px + var(--safe-b)); display:flex; flex-direction:column; }
+
+  /* ---------- login ---------- */
+  #login { text-align:center; justify-content:center; }
+  #login .mark { width:92px; height:92px; margin:0 auto 18px; }
+  #login h1 { font-family:var(--font-display); font-weight:400; font-size:42px; letter-spacing:.03em; margin:0; line-height:1; }
+  #login h1 span { color:var(--coco-pink); }
+  #login p { color:var(--soft); margin:6px 0 22px; }
+  #pin { font-size:30px; letter-spacing:12px; text-align:center; width:240px; padding:14px; border-radius:var(--radius); border:1px solid var(--edge); background:var(--surface); color:var(--coco-paper); outline:none; }
+  #pin:focus { border-color:var(--coco-blue); }
+  #unlock { display:block; margin:14px auto 0; width:240px; padding:15px; border-radius:var(--pill); background:var(--coco-pink); color:var(--coco-white); font-size:16px; font-weight:700; }
+  #unlock:disabled { opacity:.55; }
+  .err { color:var(--coco-pink); min-height:1.5em; margin-top:12px; font-size:14px; }
+
+  /* ---------- home: the contact card ---------- */
+  #home { background:radial-gradient(110% 55% at 50% 0%, rgba(236,72,153,.16), transparent 62%), var(--coco-black); }
+  .topbar { display:flex; justify-content:space-between; align-items:center; height:40px; }
+  .wordmark { font-family:var(--font-display); font-size:24px; letter-spacing:.05em; line-height:1; }
+  .wordmark .c { color:var(--coco-pink); }
+  .iconbtn { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; background:var(--surface); border:1px solid var(--edge); }
+  .iconbtn svg { width:20px; height:20px; }
+  .contact { text-align:center; padding:4vh 0 2vh; }
+  .avatar { width:132px; height:132px; margin:0 auto; border-radius:50%; background:var(--coco-ink); display:grid; place-items:center; box-shadow:0 0 0 1px var(--edge), 0 20px 60px rgba(236,72,153,.18); }
+  .avatar svg { width:96px; height:96px; }
+  .contact h2 { font-family:var(--font-display); font-weight:400; font-size:46px; letter-spacing:.04em; margin:16px 0 0; line-height:1; }
+  .contact .role { color:var(--soft); font-size:15px; margin-top:4px; }
+  .presence { display:inline-flex; align-items:center; gap:7px; margin-top:12px; padding:5px 12px; border-radius:var(--pill); background:var(--surface); border:1px solid var(--edge); font-size:13px; color:var(--soft); }
+  .presence i { width:8px; height:8px; border-radius:50%; background:var(--coco-blue); box-shadow:0 0 0 3px rgba(37,99,235,.25); }
+  .callrow { display:flex; justify-content:center; gap:28px; margin:3vh 0 2vh; }
+  .action { display:flex; flex-direction:column; align-items:center; gap:8px; font-size:13px; color:var(--soft); }
+  .action .btn { width:76px; height:76px; border-radius:50%; display:grid; place-items:center; color:var(--coco-white); }
+  .action .btn svg { width:32px; height:32px; }
+  #callBtn .btn { background:var(--coco-pink); box-shadow:0 12px 36px rgba(236,72,153,.45); }
+  #callBtn:active .btn, .answer .action:active .btn { transform:scale(.96); }
+  #msgBtn .btn { background:var(--surface-2); border:1px solid var(--edge); }
+  #homeStatus { text-align:center; color:var(--soft); font-size:14px; min-height:21px; }
+  h3 { font-family:var(--font-display); font-weight:400; font-size:22px; letter-spacing:.06em; margin:22px 0 10px; }
+  .job { background:var(--surface); border:1px solid var(--edge); border-radius:var(--radius); padding:12px 14px; margin-bottom:8px; }
+  .job .t { font-weight:600; }
+  .job .s { font-size:13px; color:var(--soft); margin-top:4px; }
+  .pill { font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; padding:2px 9px; border-radius:var(--pill); border:1px solid var(--edge); margin-left:8px; color:var(--soft); white-space:nowrap; }
+  .pill.awaiting_confirm { color:var(--coco-pink); border-color:var(--coco-pink); }
+  .pill.queued, .pill.running { color:var(--coco-paper); border-color:var(--coco-blue); background:rgba(37,99,235,.25); }
+  .pill.failed, .pill.cancelled { color:var(--coco-muted); }
+  .job .acts { margin-top:10px; display:flex; gap:8px; }
+  .job .acts button { flex:1; padding:10px; border-radius:var(--pill); font-weight:600; }
+  .ok { background:var(--coco-pink); color:var(--coco-white); }
+  .no { background:transparent; color:var(--coco-paper); border:1px solid var(--edge) !important; }
+  .empty { color:var(--coco-muted); font-size:14px; }
+  footer { text-align:center; font-size:11px; color:var(--coco-muted); margin-top:auto; padding-top:18px; letter-spacing:.04em; }
+
+  /* ---------- settings sheet ---------- */
+  .sheet-bg { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:20; }
+  .sheet { position:fixed; left:0; right:0; bottom:0; z-index:21; max-width:520px; margin:0 auto; background:var(--coco-ink); border-top-left-radius:22px; border-top-right-radius:22px; border:1px solid var(--edge); padding:10px 16px calc(18px + var(--safe-b)); max-height:85dvh; overflow-y:auto; }
+  .sheet .grab { width:40px; height:5px; border-radius:3px; background:var(--edge); margin:0 auto 12px; }
+  .sheet h4 { font-family:var(--font-display); font-weight:400; font-size:20px; letter-spacing:.06em; margin:14px 0 8px; }
+  .sheet p { color:var(--soft); font-size:14px; margin:6px 0; }
+  .sheet b { color:var(--coco-paper); }
+  .sheet code { color:var(--coco-paper); word-break:break-all; }
+  .row { display:flex; gap:8px; }
+  select { flex:1; min-width:0; padding:12px; border-radius:var(--radius); border:1px solid var(--edge); background:var(--coco-black); color:var(--coco-paper); font-size:15px; }
+  .ghost { padding:12px 16px; border-radius:var(--pill); border:1.5px solid var(--coco-blue) !important; font-weight:600; }
+  .wide { width:100%; margin-top:10px; padding:13px; border-radius:var(--pill); font-weight:600; }
+  .danger { border:1px solid var(--edge) !important; color:var(--soft); margin-top:18px; }
+
+  /* ---------- in-call screen ---------- */
+  #incall { position:fixed; inset:0; z-index:10; display:flex; flex-direction:column; align-items:center;
+            padding:calc(28px + var(--safe-t)) 20px calc(24px + var(--safe-b));
+            background:radial-gradient(90% 50% at 50% 30%, rgba(37,99,235,.22), transparent 70%), radial-gradient(80% 40% at 50% 100%, rgba(236,72,153,.14), transparent 70%), var(--coco-black); }
+  body:not(.oncall) #incall, body:not(.oncall) .drawer { display:none !important; }
+  #incall .who { font-family:var(--font-display); font-size:44px; letter-spacing:.05em; line-height:1; }
+  #timer { font-variant-numeric:tabular-nums; color:var(--soft); font-size:16px; margin-top:6px; }
+  #orbLabel { font-size:12px; font-weight:600; letter-spacing:.14em; color:var(--coco-pink); margin-top:4px; min-height:20px; }
+  #orb { position:relative; width:min(60vw,240px); height:min(60vw,240px); margin:3vh 0 2vh; border-radius:50%; }
+  #orb svg { width:100%; height:100%; overflow:visible; }
+  #orb .ring { stroke:var(--coco-blue); transition:stroke-width .3s; }
+  #orb .arc { stroke:var(--coco-paper); opacity:0; transform-origin:100px 100px; }
+  #orb .cee { stroke:var(--coco-pink); transform-origin:100px 100px; }
+  #orb .halo, #orb .halo2 { opacity:0; transform-origin:100px 100px; }
+  #orb .halo { fill:var(--coco-pink); }
+  #orb .halo2 { fill:var(--coco-blue); }
+  #orb.listening .ring { animation:breathe 1.6s ease-in-out infinite; }
+  #orb.listening .halo2 { animation:halo 1.6s ease-out infinite; }
+  #orb.thinking .arc { opacity:.9; animation:spin 1s linear infinite; }
+  #orb.speaking .cee { filter:drop-shadow(0 0 12px rgba(236,72,153,.9)); animation:talk .45s ease-in-out infinite alternate; }
+  #orb.speaking .halo { animation:halo 1.2s ease-out infinite; }
+  #orb.speaking .halo2 { fill:var(--coco-pink); animation:halo 1.2s ease-out .6s infinite; }
+  #orb.live { opacity:.5; }
+  @keyframes breathe { 50% { stroke-width:24px; } }
+  @keyframes halo { 0% { opacity:.3; transform:scale(.92); } 100% { opacity:0; transform:scale(1.45); } }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes talk { to { transform:scale(1.05); } }
+  #status { text-align:center; color:var(--coco-paper); font-size:17px; line-height:1.4; min-height:48px; max-width:360px; opacity:.88;
+            display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .controls { display:grid; grid-template-columns:repeat(3, 1fr); gap:18px 26px; margin-top:auto; }
+  .ctl { display:flex; flex-direction:column; align-items:center; gap:7px; font-size:12px; color:var(--soft); }
+  .ctl .btn { width:68px; height:68px; border-radius:50%; display:grid; place-items:center; background:var(--surface-2); border:1px solid var(--edge); color:var(--coco-paper); transition:background .15s; }
+  .ctl .btn svg { width:28px; height:28px; }
+  .ctl.on .btn { background:var(--coco-paper); color:var(--coco-black); }
+  #hangup { margin-top:26px; width:76px; height:76px; border-radius:50%; background:var(--end); color:var(--coco-white); display:grid; place-items:center; box-shadow:0 12px 36px rgba(229,72,77,.4); }
+  #hangup svg { width:34px; height:34px; transform:rotate(135deg); }
+  #hangup:active { transform:scale(.96); }
+  .drawer { position:fixed; left:12px; right:12px; bottom:calc(150px + var(--safe-b)); max-width:496px; margin:0 auto; z-index:12; background:rgba(26,26,29,.97); border:1px solid var(--edge); border-radius:var(--radius); }
+  #log { max-height:42dvh; overflow-y:auto; padding:14px; }
+  .msg { margin:0 0 12px; }
+  .msg b { font-family:var(--font-display); font-weight:400; font-size:15px; letter-spacing:.08em; color:var(--coco-pink); display:block; }
+  .msg.you b { color:var(--coco-blue); }
+  #typebar { display:flex; gap:8px; padding:10px; }
+  #typed { flex:1; min-width:0; padding:12px 14px; border-radius:var(--pill); border:1px solid var(--edge); background:var(--surface); color:var(--coco-paper); font-size:16px; outline:none; }
+  #typebar button { padding:12px 18px; border-radius:var(--pill); background:var(--coco-blue); color:var(--coco-white); font-weight:600; }
+
+  /* ---------- incoming call ---------- */
+  #incoming { position:fixed; inset:0; z-index:30; display:flex; flex-direction:column; align-items:center; text-align:center;
+              padding:calc(60px + var(--safe-t)) 24px calc(48px + var(--safe-b));
+              background:radial-gradient(90% 50% at 50% 25%, rgba(236,72,153,.28), transparent 70%), var(--coco-black); }
+  #incoming .avatar { margin-top:4vh; animation:ringpulse 1.4s ease-in-out infinite; }
+  @keyframes ringpulse { 50% { box-shadow:0 0 0 14px rgba(236,72,153,.12), 0 20px 60px rgba(236,72,153,.3); } }
+  #incoming h2 { font-family:var(--font-display); font-weight:400; font-size:48px; letter-spacing:.04em; margin:22px 0 0; line-height:1; }
+  #incoming .sub { color:var(--soft); margin-top:6px; }
+  #incoming .why { margin-top:14px; color:var(--coco-paper); opacity:.85; max-width:320px; }
+  .answer { display:flex; justify-content:space-between; width:100%; max-width:300px; margin-top:auto; }
+  .answer .action .btn { width:78px; height:78px; }
+  #decline .btn { background:var(--end); }
+  #decline .btn svg { transform:rotate(135deg); }
+  #accept .btn { background:var(--coco-pink); animation:wiggle 1.2s ease-in-out infinite; }
+  @keyframes wiggle { 0%,60%,100% { transform:rotate(0); } 70% { transform:rotate(-12deg); } 80% { transform:rotate(12deg); } 90% { transform:rotate(-6deg); } }
+</style>
+</head>
+<body>
+<!-- shared icons -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-phone" viewBox="0 0 24 24"><path fill="currentColor" d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z"/></symbol>
+    <symbol id="i-micoff" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11h-2a5 5 0 0 1-.4 1.97l1.47 1.47A6.9 6.9 0 0 0 19 11zm-4 .17V5a3 3 0 0 0-5.9-.75L15 10.17zM4.27 3 3 4.27l6 6V11a3 3 0 0 0 4.5 2.6l1.65 1.65A5 5 0 0 1 7 11H5a7 7 0 0 0 6 6.92V21h2v-3.08a6.9 6.9 0 0 0 3.6-1.5L19.73 21 21 19.73z"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><path fill="currentColor" d="M20 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-9 3h2v2h-2zm0 3h2v2h-2zM8 8h2v2H8zm0 3h2v2H8zm-1 2H5v-2h2zm0-3H5V8h2zm9 7H8v-2h8zm0-4h-2v-2h2zm0-3h-2V8h2zm3 3h-2v-2h2zm0-3h-2V8h2z"/></symbol>
+    <symbol id="i-text" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7l-5 4V6a2 2 0 0 1 2-2zm3 5v2h10V9zm0 4v2h7v-2z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></symbol>
+    <symbol id="i-mark" viewBox="0 0 200 200"><circle cx="100" cy="100" r="88" fill="none" stroke="#2563EB" stroke-width="18"/><path d="M133.2,60 A52,52 0 1,0 133.2,140" fill="none" stroke="#EC4899" stroke-width="24" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<!-- login -->
+<section id="login" class="screen">
+  <svg class="mark"><use href="#i-mark"/></svg>
+  <h1><span>COCO</span> VOICE</h1>
+  <p>Your private line. Enter your PIN.</p>
+  <form id="loginForm">
+    <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="current-password" maxlength="12" autofocus>
+    <button id="unlock" type="submit">Unlock</button>
+  </form>
+  <p class="err" id="loginErr"></p>
+</section>
+
+<!-- home: Coco's contact card -->
+<section id="stage" class="hidden">
+  <div id="home" class="screen">
+    <div class="topbar">
+      <div class="wordmark"><span class="c">COCO</span>CORP</div>
+      <button id="btnSettings" class="iconbtn" aria-label="Settings"><svg><use href="#i-gear"/></svg></button>
+    </div>
+    <div class="contact">
+      <div class="avatar"><svg><use href="#i-mark"/></svg></div>
+      <h2>COCO</h2>
+      <div class="role">Your CocoCorp assistant</div>
+      <div class="presence"><i></i><span id="presence">Online</span></div>
+    </div>
+    <div class="callrow">
+      <button id="msgBtn" class="action"><span class="btn"><svg><use href="#i-text"/></svg></span>Message</button>
+      <button id="callBtn" class="action"><span class="btn"><svg><use href="#i-phone"/></svg></span>Call</button>
+    </div>
+    <div id="homeStatus"></div>
+    <h3>Activity</h3>
+    <div id="jobs"></div>
+    <footer>COCOCORP · cococorp.tech</footer>
+  </div>
+</section>
+
+<!-- settings sheet -->
+<div id="sheetBg" class="sheet-bg hidden"></div>
+<div id="settings" class="sheet hidden">
+  <div class="grab"></div>
+  <h4>Call style</h4>
+  <div class="row"><select id="modeSel"><option value="live">Live call: natural, interrupt any time</option><option value="classic">Classic: take turns</option></select></div>
+  <h4>Voice</h4>
+  <div class="row"><select id="voiceSel"></select><button id="voiceTest" class="ghost" type="button">Test</button></div>
+  <p id="voiceNow"></p>
+  <h4>Callbacks</h4>
+  <p>Install the free <b>ntfy</b> app, tap +, and subscribe to this topic (keep it private). Allow notifications and set them to <b>Time Sensitive</b>.</p>
+  <p><code id="topic"></code></p>
+  <button id="btnRingMe" class="wide ghost">Test: app call in 30 seconds</button>
+  <h4>Phone calls</h4>
+  <p id="phoneInfo"></p>
+  <button id="btnPhoneMe" class="wide ok hidden">Call my phone now</button>
+  <button id="btnLogout" class="wide danger">Lock Coco</button>
+</div>
+
+<!-- in call -->
+<div id="incall">
+  <div class="who">COCO</div>
+  <div id="timer">calling…</div>
+  <div id="orbLabel"></div>
+  <button id="orb" aria-label="Mute or interrupt">
+    <svg viewBox="0 0 200 200" aria-hidden="true">
+      <circle class="halo" cx="100" cy="100" r="96"/>
+      <circle class="halo2" cx="100" cy="100" r="96"/>
+      <circle cx="100" cy="100" r="98" fill="#111113"/>
+      <circle class="ring" cx="100" cy="100" r="88" fill="none" stroke-width="18"/>
+      <circle class="arc" cx="100" cy="100" r="88" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="70 483"/>
+      <path class="cee" d="M133.2,60 A52,52 0 1,0 133.2,140" fill="none" stroke-width="24" stroke-linecap="round"/>
+    </svg>
+  </button>
+  <div id="status"></div>
+  <div class="controls">
+    <button id="btnMute" class="ctl"><span class="btn"><svg><use id="muteIcon" href="#i-mic"/></svg></span><span id="muteLabel">Mute</span></button>
+    <button id="btnType" class="ctl"><span class="btn"><svg><use href="#i-keyboard"/></svg></span>Type</button>
+    <button id="btnTranscript" class="ctl"><span class="btn"><svg><use href="#i-text"/></svg></span>Transcript</button>
+  </div>
+  <button id="hangup" aria-label="End call"><svg><use href="#i-phone"/></svg></button>
+</div>
+<div id="transcriptDrawer" class="drawer hidden"><div id="log"></div></div>
+<div id="typeDrawer" class="drawer hidden"><form id="typebar"><input id="typed" placeholder="Type to Coco…" autocomplete="off"><button>Send</button></form></div>
+
+<!-- incoming call (Coco calling you) -->
+<div id="incoming" class="hidden">
+  <div class="avatar"><svg><use href="#i-mark"/></svg></div>
+  <h2>COCO</h2>
+  <div class="sub">is calling you…</div>
+  <div class="why" id="incomingWhy"></div>
+  <div class="answer">
+    <button id="decline" class="action"><span class="btn"><svg><use href="#i-phone"/></svg></span>Decline</button>
+    <button id="accept" class="action"><span class="btn"><svg><use href="#i-phone"/></svg></span>Accept</button>
+  </div>
+</div>
+
+<script src="/live.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
