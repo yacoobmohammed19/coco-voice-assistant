@@ -1,2 +1,4 @@
 py-tgcalls[telethon]>=3.0.0,<4
+# 3.0.3 fixes early ICE candidates being dropped in P2P calls (calls connected, then went silent and dropped)
+ntgcalls>=3.0.3
 websockets>=12
