@@ -58,6 +58,7 @@ Then open your `https://<pc>.<tailnet>.ts.net` URL on your phone, enter the PIN 
 | [docs/BACKGROUND-JOBS.md](docs/BACKGROUND-JOBS.md) | How voice requests become headless Claude Code jobs: tiers, deny lists, MCP config, outbox, callbacks. |
 | [docs/TOOLING.md](docs/TOOLING.md) | Tailscale, ntfy, Telegram helper, WhatsApp bridge, social module, MCP servers, watchdogs. |
 | [docs/SECURITY.md](docs/SECURITY.md) | Threat model and every protection layer. |
+| [docs/WHATSAPP-GUARDRAILS.md](docs/WHATSAPP-GUARDRAILS.md) | Modular guardrail template for customer-facing WhatsApp AI assistants: prompt-injection defence, refusals, abuse mute, rate limits, price lock, privacy, handoff, lead gate, off-hours, payment safety, plus a red-team test pack. |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Known failure modes and fixes. |
 
 ## Requirements
