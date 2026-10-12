@@ -435,6 +435,10 @@ class Service:
                     await c.end()
                     self.call = None
 
+        # Relay-only audio: direct phone-to-PC (P2P) routes can reach "CONNECTED" but carry no sound
+        # (every frame from the phone is pure silence), so the phone hangs up. Telegram's relay servers
+        # give one known-good route. Set "tgAllowP2P": true in config.json to undo.
+        self.calls._binding = RelayOnly(self.calls._binding, bool(self.cfg.get('tgAllowP2P')))
         await self.calls.start()
         me = await client.get_me()
         await self.status(f'ready as {me.first_name}; owner {self.owner_id}')
@@ -458,6 +462,29 @@ class Service:
                     hard_exit(3)
         asyncio.create_task(watchdog())
         await self.control_loop()
+
+
+class RelayOnly:
+    """Wraps the NTgCalls binding so calls use Telegram's relays, and logs what each call negotiated."""
+
+    def __init__(self, binding, allow_p2p):
+        self._b, self._allow = binding, allow_p2p
+
+    def __getattr__(self, name):
+        return getattr(self._b, name)
+
+    def get_protocol(self):
+        p = self._b.get_protocol()
+        if not self._allow:
+            p.udp_p2p = False
+        return p
+
+    async def connect_p2p(self, chat_id, servers, versions, p2p_allowed, custom_parameters):
+        relays = sum(1 for s in servers if s.turn or s.peer_tag)
+        use_p2p = bool(p2p_allowed and (self._allow or not relays))  # no relays offered: P2P is all there is
+        print(f'call setup {chat_id}: versions {list(versions)}, {len(servers)} servers ({relays} relays), '
+              f'p2p offered {p2p_allowed}, using {"p2p" if use_p2p else "relay only"}', flush=True)
+        return await self._b.connect_p2p(chat_id, servers, versions, use_p2p, custom_parameters)
 
 
 def hard_exit(code):
