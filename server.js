@@ -2,6 +2,9 @@
 // Binds to 127.0.0.1 only. Reach it from your phone through Tailscale Serve (private HTTPS, your devices only).
 // Slow or flaky connections: give each connection attempt 2.5s (Node's default 250ms fails on a sluggish line).
 require('net').setDefaultAutoSelectFamilyAttemptTimeout(2500);
+// First thing: if a self-update keeps crashing on start, this rolls it back before anything else loads.
+const selfupdate = require('./lib/selfupdate');
+selfupdate.bootGuard();
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -34,6 +37,7 @@ jobs.init(cfg, {
   // Returning false (nothing delivered) falls back to a push notification.
   onDone: async (j) => {
     if (j.routine) return routineDone(j);
+    if (j.admin) setTimeout(() => adminDone(j), 4000); // after the result message below
     const sent = telegram.message(jobMessage(j));
     if (sent) deliverJobFiles(j);
     // Only ring for things worth a call: failures/blockers, high-priority results, or when he asked to be called.
@@ -42,6 +46,33 @@ jobs.init(cfg, {
     return sent || rang;
   },
 });
+// "Update yourself": pull main from GitHub, check, restart; rolls back if it won't start.
+let updating = false;
+async function selfUpdate() {
+  if (updating) return;
+  updating = true;
+  try {
+    const r = await selfupdate.update(cfg, { waitFor: jobs.busy, say: (t) => telegram.message(t) });
+    if (r.unchanged) telegram.message('Already up to date.');
+    else if (!r.ok) telegram.message(`⚠️ Update didn't go through:\n${r.problems.join('\n').slice(0, 1500)}`);
+  } catch (e) { telegram.message(`⚠️ Update failed: ${e.message}`); }
+  updating = false;
+}
+
+// An admin job changed Coco itself: commit what it left, then check and restart (or roll back).
+async function adminDone(j) {
+  if (!j.good) return;
+  selfupdate.commitAll(`Coco admin job ${j.id}: ${j.title}`);
+  const changed = selfupdate.git('rev-parse', 'HEAD') !== j.good;
+  if (j.status !== 'done') {
+    if (changed) { selfupdate.git('reset', '--hard', j.good); telegram.message(`The change didn't finish, so I put the code back as it was (${j.good.slice(0, 7)}).`); }
+    return;
+  }
+  if (!changed && !j.restart) return;
+  const r = await selfupdate.restart(j.good, j.title, { force: j.restart, waitFor: jobs.busy, say: (t) => telegram.message(t) });
+  if (!r.ok) telegram.message(`⚠️ That change didn't pass checks, so I rolled it back:\n${r.problems.join('\n').slice(0, 1500)}`);
+}
+
 // Send the files a job produced (its outbox folder) to the owner's Telegram, after the summary.
 function deliverJobFiles(j) {
   let files = [];
@@ -478,6 +509,7 @@ const callHooks = {
   recent: (callId) => vault.recentConversation(cfg, { excludeId: callId, maxChars: cfg.liveRecentChars }),
   memory: () => memory.context(cfg),
   notice: (text) => telegram.message(text),
+  update: () => selfUpdate(),
   missed: () => notify.push(cfg, { title: 'Missed call from Coco', message: 'Tap to call back', url: cfg.publicUrl || undefined }),
 };
 phone.start(cfg, callHooks);
@@ -578,7 +610,20 @@ async function talk(callId, text, channel) {
   }
 
   const a = reply.action;
-  if (a?.type === 'job' && a.brief) {
+  if (a?.type === 'admin' && a.brief) {
+    const job = jobs.create({ title: a.title, brief: a.brief, tier: 'confirm', callId, admin: true });
+    call.proposed.add(job.id);
+    out.job = jobs.publicView(job);
+    call.history.push({ role: 'tool', text: `Admin job ${job.id} created (${job.status}). Coco restarts itself when it's done if needed.` });
+  } else if (a?.type === 'set_config' && a.key) {
+    const r = selfupdate.setConfig(cfg, String(a.key), a.value);
+    if (r.error) reply.say = r.error;
+    else reply.say = `${reply.say ? reply.say + ' ' : ''}(${r.key}: ${JSON.stringify(r.old)} → ${JSON.stringify(r.value)})`.trim();
+  } else if (a?.type === 'show_config') {
+    reply.say = `${reply.say || 'Current settings:'}\n${Object.entries(selfupdate.showConfig(cfg)).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join('\n')}`;
+  } else if (a?.type === 'self_update') {
+    selfUpdate();
+  } else if (a?.type === 'job' && a.brief) {
     const job = jobs.create({ title: a.title, brief: a.brief, tier: a.tier, callId });
     call.proposed.add(job.id);
     out.job = jobs.publicView(job);
@@ -661,6 +706,14 @@ async function liveTool(callId, name, args = {}, heard = '') {
       return { job_id: job.id, tier: job.tier, status: job.status,
         note: job.status === 'awaiting_confirm' ? 'Needs a clear yes from the owner before it runs. Ask him, then call confirm_job.' : 'Running in the background now.' };
     }
+    case 'change_coco': {
+      if (!args.brief) return { error: 'A brief is required.' };
+      const job = jobs.create({ title: args.title, brief: args.brief, tier: 'confirm', callId, admin: true });
+      call.proposed.add(job.id);
+      return { job_id: job.id, status: job.status, note: 'Running in the background; Coco restarts itself afterwards if needed and messages him.' };
+    }
+    case 'set_setting': return selfupdate.setConfig(cfg, String(args.key || ''), args.value);
+    case 'update_coco': selfUpdate(); return { ok: true, note: 'Pulling the latest code; Coco restarts if anything changed.' };
     case 'confirm_job': {
       const id = args.job_id || [...call.proposed].pop();
       const job = id && jobs.get(id);
@@ -892,6 +945,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(cfg.port, cfg.host, () => {
   console.log(`Coco Voice listening on http://${cfg.host}:${cfg.port}`);
+  selfupdate.probation();
   if (cfg.publicUrl) console.log(`Phone URL: ${cfg.publicUrl}`);
   console.log(`Conversation model: ${cfg.chatBrain === 'gemini' ? `Gemini / ${cfg.geminiChatModel}` : `${cfg.anthropicApiKey ? 'Anthropic API' : 'Claude Code CLI (subscription)'} / ${cfg.talkModel}`}`);
 });

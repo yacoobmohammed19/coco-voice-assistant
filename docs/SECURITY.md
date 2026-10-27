@@ -18,10 +18,12 @@ design goal: **only the owner can reach it, and only the owner's own words can m
 | Twilio (if enabled): signature check, owner caller ID + keypad PIN, single-use stream tokens | Spoofed webhooks and calls |
 | Secrets in `~/.coco-voice`, never in the repo or vault | Leaks through git, vault sync or backups |
 | ntfy pushes carry titles only | A guessed topic revealing content |
+| Self-admin (docs/SELF-ADMIN.md): chat settings are an allowlist with type checks; `/key` secrets handled in code, never sent to a model or log, message deleted; admin jobs checked (`node --check`, config host) before restart and rolled back on failure or a crash loop | Coco breaking or exposing itself while changing its own code |
 
 ## Things to keep true when modifying
 
 - Don't add `0.0.0.0` listeners or Funnel for 8787.
+- Don't add secrets, `host`, `port`, PIN or deny-list settings to `SETTINGS` in lib/selfupdate.js.
 - Don't move policy into prompts: confirmation, do-not-call and release codes are enforced in code.
 - Keep `.gitignore` covering `config.json`, sessions and logs if you ever store them near the repo.
 - Rotate `sessionSecret` (`node setup.js --reset-pin`) after losing a device.
