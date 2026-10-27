@@ -4,7 +4,7 @@
 const CocoLive = (() => {
   let ws = null, ctx = null, stream = null, node = null, src = null;
   let callId = null, playing = [], nextTime = 0, muted = false, ending = false;
-  let heard = '', saidBuf = '', heardBuf = '';
+  let heard = '', saidBuf = '', heardBuf = '', capTimer = null;
   let ui = {};
 
   const b64 = (buf) => {
@@ -121,6 +121,8 @@ const CocoLive = (() => {
     if (!res.ok) throw new Error(s.error || 'could not start');
     callId = s.callId;
     if (opts.onJobs) opts.onJobs(s.jobs);
+    // The server caps call length (Gemini Live bills every second); hang up here too in case the token outlives it.
+    if (s.maxMinutes) capTimer = setTimeout(hangup, s.maxMinutes * 60_000);
 
     ws = new WebSocket(`${s.wsUrl}?access_token=${encodeURIComponent(s.token)}`);
     ws.onopen = () => ws.send(JSON.stringify({ setup: { model: s.model } }));
@@ -164,6 +166,8 @@ const CocoLive = (() => {
   }
 
   function cleanup() {
+    clearTimeout(capTimer);
+    if (callId) fetch('/api/live/end', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ callId }), keepalive: true }).catch(() => {});
     flushTranscripts();
     stopPlayback();
     try { src && src.disconnect(); } catch {}

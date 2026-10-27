@@ -7,9 +7,9 @@ Coco uses one Gemini API key (`geminiApiKey` in config) for six jobs. All calls 
 |---|---|---|---|
 | Realtime voice calls | `models/gemini-3.8-live` (constant `MODEL`) | WebSocket `BidiGenerateContent` / `BidiGenerateContentConstrained` | `lib/live.js`, `public/live.js`, `lib/callbridge.js` |
 | Ephemeral tokens for the phone | — | `POST /v1beta/auth_tokens` | `lib/live.js` `mintToken()` |
-| Chat brain (Telegram/classic) | `geminiChatModel` → `gemini-flash-latest` | `models/{m}:generateContent` | `lib/brain.js` |
-| Nightly memory pass, self-test | `geminiChatModel` | `generateContent` | `lib/memory.js`, `lib/selftest.js` |
-| Voice-note transcription | `geminiTextModel` → `gemini-flash-lite-latest` | `generateContent` (inline audio) | `lib/transcribe.js` |
+| Chat brain (only when `chatBrain: "gemini"`, else fallback) | `geminiChatModel` → `gemini-flash-latest` | `models/{m}:generateContent` | `lib/brain.js` |
+| Nightly memory pass, self-test (same rule) | `geminiChatModel` | `generateContent` | `lib/memory.js`, `lib/selftest.js` |
+| Voice-note transcription (after Groq, if set) | `geminiTextModel` → `gemini-flash-lite-latest` | `generateContent` (inline audio) | `lib/transcribe.js` |
 | Text-to-speech (classic mode) | `geminiTtsModel` → `gemini-3.8-flash-lite-tts` | `POST /v1beta/interactions` | `lib/tts.js` |
 | Semantic search | `embedModel` → `gemini-embedding-001` (768 dims) | `embedContent` / `batchEmbedContents` | `lib/semantic.js` |
 
@@ -23,6 +23,25 @@ node -e "const c=require('./lib/config').load();fetch('https://generativelanguag
 ```
 
 Look for a model supporting `bidiGenerateContent` (Live), one with TTS, a flash model and an embedding model.
+
+## Keeping the bill down
+
+Where the money goes, biggest first: Gemini Live calls (audio billed every second both ways, and the whole
+prompt re-billed each turn), then chat turns, TTS, transcription, embeddings.
+
+| Lever | Default | Effect |
+|---|---|---|
+| `chatBrain: "claude"`, `talkModel: "sonnet"` | on | Telegram chat, classic mode and the nightly memory pass run on the Claude subscription. Gemini only if Claude fails. Jobs were already Claude (Sonnet for lookups, Opus for real work) |
+| `geminiFreeApiKey` | empty | A second key from a Google project **without** billing. Embeddings, transcription, TTS and Gemini chat try it first and switch to the billed key only on 429. Free-tier data may be used by Google to improve products |
+| `groqApiKey` | empty | Voice notes go to Groq's free Whisper tier first |
+| `liveMaxMinutes` | 15 | Per-call cap; Coco is told to wrap up a minute before |
+| `liveDailyMinutes` | 60 | Daily cap. Past it the app falls back to classic mode (Claude + Gemini TTS), Telegram calls are refused with a text, and job results arrive as messages instead of rings |
+| `liveRecentChars` | 6000 | Less history in the Live prompt (was 16000) |
+| `contextWindowCompression` | 16k → 8k tokens | Long calls drop their oldest turns instead of re-billing them |
+
+`GET /health` shows today's counters (`usage`): `liveMinutes`, paid vs free calls and paid tokens per feature,
+TTS characters. History for 14 days is in `$DATA/usage.json`. Also set a budget alert on the Google Cloud
+project (Billing → Budgets & alerts).
 
 ## Billing and privacy
 
@@ -108,7 +127,8 @@ fallback only — it throttles an IP within minutes and changes the voice, so it
 
 `lib/brain.js` calls `generateContent` with `thinkingConfig.thinkingBudget: 0` (2–3 s replies instead of
 ~4.5 s) and asks for a JSON `{say, action}` object. `brain.parse` tolerates arrays, back-to-back objects and
-code fences so raw JSON never reaches the user. Set `chatBrain: "claude"` to use Claude instead.
+code fences so raw JSON never reaches the user. It is only used when `chatBrain` is `"gemini"` (or as the
+fallback when the Claude CLI fails).
 
 ## Network gotcha
 

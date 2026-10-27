@@ -1,5 +1,5 @@
 // One-time setup. Run:  node setup.js
-// Options: --reset-pin  --twilio  --gemini-key  --claude-token  --public-url <https://...>  --api-key <sk-ant-...>
+// Options: --reset-pin  --twilio  --gemini-key  --gemini-free-key  --groq-key  --claude-token  --public-url <https://...>  --api-key <sk-ant-...>
 const crypto = require('crypto');
 const readline = require('readline');
 const { execFileSync } = require('child_process');
@@ -47,6 +47,14 @@ function tailscaleUrl() {
   if (args.includes('--gemini-key')) {
     const k = await ask('Paste your Gemini API key from aistudio.google.com/apikey (stays on this PC): ');
     if (k) cfg.geminiApiKey = k;
+  }
+  if (args.includes('--gemini-free-key')) {
+    const k = await ask('Paste a Gemini key from a Google project WITHOUT billing (free tier, used first for background work): ');
+    if (k) cfg.geminiFreeApiKey = k.trim();
+  }
+  if (args.includes('--groq-key')) {
+    const k = await ask('Paste your Groq API key from console.groq.com/keys (free Whisper for voice notes): ');
+    if (k) cfg.groqApiKey = k.trim();
   }
   if (args.includes('--twilio')) {
     console.log('\nFrom the Twilio console (console.twilio.com), Account Info box:');
