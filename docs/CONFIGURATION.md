@@ -51,12 +51,20 @@ purpose. `lib/config.js` merges it over `DEFAULTS`. A starter file is in `exampl
 
 | Key | Default | Notes |
 |---|---|---|
-| `geminiApiKey` | `""` | Required for Live calls, TTS, chat brain, transcription, embeddings |
-| `geminiChatModel` | `gemini-flash-latest` | Chat brain + memory pass |
+| `geminiApiKey` | `""` | Billed key, used for Live voice calls only |
+| `geminiFreeApiKey` | `""` | Key from a Google project **without** billing. Embeddings, transcription, TTS and backup chat use only this key |
+| `geminiPaidForAll` | `false` | `true` lets those fall back to the billed key on 429 |
+| `groqApiKey` | `""` | Free Groq Whisper (`whisper-large-v3-turbo`) for voice notes; Gemini is the fallback |
+| `geminiChatModel` | `gemini-flash-latest` | Chat brain + memory pass when `chatBrain` is `gemini` |
 | `geminiTextModel` | `gemini-flash-lite-latest` | Voice-note transcription |
 | `geminiTtsModel` | `gemini-3.8-flash-lite-tts` | Classic-mode voice |
-| `chatBrain` | `gemini` | `gemini` or `claude` |
-| `talkModel` | `haiku` | Claude model for the Claude chat fallback |
+| `chatBrain` | `claude` | `claude` (subscription, no per-token bill) or `gemini` (faster, billed). The other is the fallback. Also picks the nightly memory pass brain |
+| `talkModel` | `sonnet` | Claude model for chat and the memory pass. `haiku` is faster |
+| `liveMaxMinutes` | `15` | One Gemini Live call is wrapped up after this |
+| `geminiBudgetUsd` / `geminiBudgetUntil` | `10` / `2026-12-31` | Live spend budget, spread per day with rollover. `0` = no budget |
+| `livePrices` | `null` | Override USD per 1M tokens `{ audioIn, textIn, audioOut, textOut }` |
+| `liveDailyMinutes` | `0` | Optional extra cap in Live minutes per SAST day |
+| `liveRecentChars` | `6000` | Recent conversation in the Live prompt (re-billed every turn) |
 | `anthropicApiKey` | `""` | Optional: Claude chat fallback via API (~1 s) instead of CLI |
 | `claudeOAuthToken` | `""` | From `claude setup-token`; keeps headless jobs logged in |
 | `claudeExe` | auto | Found at `~/.local/bin/claude.exe` or npm global; else `claude` on PATH |

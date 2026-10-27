@@ -20,6 +20,7 @@ const notify = require('./lib/notify');
 const memory = require('./lib/memory');
 const semantic = require('./lib/semantic');
 const selftest = require('./lib/selftest');
+const usage = require('./lib/usage');
 
 const cfg = config.load();
 if (!cfg.pinHash || !cfg.sessionSecret) {
@@ -396,7 +397,7 @@ if (!daily().memory) saveDaily({ ...daily(), memory: memory.sastDate(Date.now() 
 setInterval(() => dailyTick().catch((e) => console.error('[daily]', e.message)), 60_000);
 
 async function runSelftest(report) {
-  const r = await selftest.run(cfg, { live, claude: require('./lib/claude'), vault, semantic, telegram, memory, waStatus: () => wa('/status') });
+  const r = await selftest.run(cfg, { live, gemini: require('./lib/gemini'), claude: require('./lib/claude'), vault, semantic, telegram, memory, waStatus: () => wa('/status') });
   if (report && !r.ok) {
     const bad = r.checks.filter((c) => !c.ok).map((c) => `• ${c.name}: ${c.detail}`).join('\n');
     telegram.message(`⚠️ Morning self-check found problems:\n${bad}`);
@@ -462,6 +463,7 @@ function dndFromText(text) {
 // Ring his phone: Telegram call (free) first, then Twilio if set up; false = caller falls back to a push.
 async function ringOwner(kickoff) {
   if (dndOn()) return false;
+  if (!usage.liveOk(cfg)) return false; // voice budget spent: the result goes out as a message instead
   if (telegram.call(kickoff)) return true;
   if (phone.configured()) return !!(await phone.call(kickoff));
   return false;
@@ -473,8 +475,9 @@ const callHooks = {
   kickoff: () => liveKickoff(),
   newCall: () => { const id = 'p-' + crypto.randomBytes(4).toString('hex'); getCall(id); return id; },
   log: (callId, who, text) => vault.logCall(cfg, callId, who, text),
-  recent: (callId) => vault.recentConversation(cfg, { excludeId: callId }),
+  recent: (callId) => vault.recentConversation(cfg, { excludeId: callId, maxChars: cfg.liveRecentChars }),
   memory: () => memory.context(cfg),
+  notice: (text) => telegram.message(text),
   missed: () => notify.push(cfg, { title: 'Missed call from Coco', message: 'Tap to call back', url: cfg.publicUrl || undefined }),
 };
 phone.start(cfg, callHooks);
@@ -732,7 +735,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const p = url.pathname;
 
-    if (p === '/health') return send(res, 200, { ok: true, telegram: telegram.healthy(), whatsapp: !!lastWa.connected, uptime: Math.round(process.uptime()), queued: telegram.queued(), selftest: selftest.last() });
+    if (p === '/health') return send(res, 200, { ok: true, telegram: telegram.healthy(), whatsapp: !!lastWa.connected, uptime: Math.round(process.uptime()), queued: telegram.queued(), selftest: selftest.last(), usage: usage.summary(cfg) });
 
     if (p.startsWith('/api/')) {
       if (req.method === 'POST') {
@@ -751,7 +754,7 @@ const server = http.createServer(async (req, res) => {
       if (p === '/api/logout') return send(res, 200, { ok: true }, { 'Set-Cookie': 'coco_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' });
       if (!session(req)) return send(res, 401, { error: 'login required' });
 
-      if (p === '/api/me') return send(res, 200, { ok: true, ntfyTopic: cfg.ntfyTopic, ntfyServer: cfg.ntfyServer, live: !!cfg.geminiApiKey, persona: cfg.persona, voiceLocked: cfg.voiceLocked !== false, phone: telegram.connected() ? { via: 'Telegram', you: cfg.ownerNumber } : phone.configured() ? { via: 'phone', coco: cfg.twilioNumber, you: cfg.ownerNumber } : null });
+      if (p === '/api/me') return send(res, 200, { ok: true, ntfyTopic: cfg.ntfyTopic, ntfyServer: cfg.ntfyServer, live: !!cfg.geminiApiKey && usage.liveOk(cfg), persona: cfg.persona, voiceLocked: cfg.voiceLocked !== false, phone: telegram.connected() ? { via: 'Telegram', you: cfg.ownerNumber } : phone.configured() ? { via: 'phone', coco: cfg.twilioNumber, you: cfg.ownerNumber } : null });
       if (p === '/api/prefs' && req.method === 'POST') {
         const { persona } = await readBody(req);
         // Voice is locked so it can't change by accident; unlock with voiceLocked:false in config.json.
@@ -803,12 +806,14 @@ const server = http.createServer(async (req, res) => {
       }
       if (p === '/api/live/start' && req.method === 'POST') {
         if (!cfg.geminiApiKey) return send(res, 409, { error: 'live mode needs a Gemini key' });
+        if (!usage.liveOk(cfg)) return send(res, 409, { error: "Today's voice-call budget is used up. Switch to classic mode." });
         const { jobId, ringId } = await readBody(req);
         try {
-          const token = await live.mintToken(cfg, cfg.persona, vault.recentConversation(cfg), memory.context(cfg)); // one voice everywhere
+          const maxMinutes = Math.min(cfg.liveMaxMinutes || 30, usage.liveLeft(cfg));
+          const token = await live.mintToken({ ...cfg, liveMaxMinutes: maxMinutes }, cfg.persona, vault.recentConversation(cfg, { maxChars: cfg.liveRecentChars }), memory.context(cfg)); // one voice everywhere
           const callId = 'c-' + crypto.randomBytes(4).toString('hex');
-          getCall(callId);
-          return send(res, 200, { token, wsUrl: live.WS_URL, model: live.MODEL, callId, kickoff: liveKickoff(jobId, ringId), jobs: jobs.list(5) });
+          getCall(callId).liveStart = Date.now();
+          return send(res, 200, { token, wsUrl: live.WS_URL, model: live.MODEL, callId, maxMinutes, kickoff: liveKickoff(jobId, ringId), jobs: jobs.list(5) });
         } catch (e) {
           console.error('[live]', e.message);
           return send(res, 502, { error: 'Could not start a live call' });
@@ -827,6 +832,24 @@ const server = http.createServer(async (req, res) => {
         const out = await liveTool(callId, String(name), args || {}, heard);
         vault.logCall(cfg, callId, 'Tool', `${name}(${JSON.stringify(args || {}).slice(0, 300)}) -> ${JSON.stringify(out).slice(0, 300)}`);
         return send(res, 200, out);
+      }
+      if (p === '/api/live/end' && req.method === 'POST') {
+        // The phone talks to Gemini directly, so it reports when the call ended; minutes count toward the daily cap.
+        const { callId } = await readBody(req);
+        const c = callId && calls.get(callId);
+        if (c && c.liveStart) {
+          usage.add('liveMinutes', Math.min(Date.now() - c.liveStart, (cfg.liveMaxMinutes || 30) * 60_000) / 60_000); c.liveStart = 0;
+          vault.logCall(cfg, callId, 'Call', `Gemini cost ~$${(c.liveUsd || 0).toFixed(3)}`);
+        }
+        return send(res, 200, { ok: true });
+      }
+      if (p === '/api/live/usage' && req.method === 'POST') {
+        // The phone relays Gemini's token counts; the reply tells it to wrap up once today's budget is spent.
+        const { callId, meta } = await readBody(req);
+        const c = callId && calls.get(callId);
+        if (!c || !c.liveStart || !meta || typeof meta !== 'object') return send(res, 400, { error: 'bad request' });
+        c.liveUsd = (c.liveUsd || 0) + usage.addLive(cfg, meta);
+        return send(res, 200, { stop: !usage.liveOk(cfg) });
       }
       if (p === '/api/live/log' && req.method === 'POST') {
         const { callId, who, text } = await readBody(req);
@@ -870,5 +893,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(cfg.port, cfg.host, () => {
   console.log(`Coco Voice listening on http://${cfg.host}:${cfg.port}`);
   if (cfg.publicUrl) console.log(`Phone URL: ${cfg.publicUrl}`);
-  console.log(`Conversation model: ${cfg.anthropicApiKey ? 'Anthropic API' : 'Claude Code CLI (subscription)'} / ${cfg.talkModel}`);
+  console.log(`Conversation model: ${cfg.chatBrain === 'gemini' ? `Gemini / ${cfg.geminiChatModel}` : `${cfg.anthropicApiKey ? 'Anthropic API' : 'Claude Code CLI (subscription)'} / ${cfg.talkModel}`}`);
 });

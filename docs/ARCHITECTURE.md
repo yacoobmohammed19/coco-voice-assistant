@@ -5,7 +5,8 @@
 A single Node process (`server.js`, zero npm dependencies) runs on an always-on Windows PC and binds only to
 `127.0.0.1`. The owner reaches it three ways: a PWA over Tailscale Serve, Telegram (chat + real calls through
 a Python sidecar logged in as Coco's own Telegram account), and optionally a Twilio phone number. Realtime
-voice is **Gemini Live**; text chat is **Gemini Flash** (Claude fallback). Anything that is real work becomes
+voice is **Gemini Live** (capped per call and per day); text chat is **Claude Sonnet** on the subscription (Gemini
+Flash fallback). Anything that is real work becomes
 a **background job**: a headless `claude -p` run with the owner's MCP servers, a deny-list permission policy,
 and a fixed delivery contract (vault result note + short text message + files). Results come back as a
 Telegram message or call, an ntfy push, and one daily digest email.
@@ -25,7 +26,7 @@ Telegram message or call, an ntfy push, and one daily digest email.
  │ HTTP API + static PWA        lib/auth.js (PIN, session cookie, lockout)                       │
  │ /api/live/start ─ lib/live.js ─ mint ephemeral Gemini token (setup locked)                    │
  │ /api/live/tool  ─ tool relay (lookup_vault, start_job, confirm_job, remind_me, …)             │
- │ /api/talk       ─ lib/brain.js (Gemini Flash chat brain / Claude fallback)                    │
+ │ /api/talk       ─ lib/brain.js (Claude chat brain / Gemini Flash fallback)                    │
  │ lib/telegram.js ─ control + stream WebSockets for the Telegram helper (lib/wsserver.js)       │
  │ lib/phone.js    ─ Twilio Media Streams on 127.0.0.1:8788 (dormant unless configured)          │
  │ lib/callbridge.js ─ server-side Gemini Live session for Telegram/Twilio calls                 │
@@ -58,7 +59,7 @@ Nothing listens on a public interface. Tailscale Serve exposes 8787 only inside 
 |---|---|---|---|---|
 | **App call, Live mode** (default) | mic → AudioWorklet 16 kHz PCM → WebSocket **directly to Gemini** | Gemini Live | Gemini Live 24 kHz PCM | ~1 s greeting, ~3 s with a lookup |
 | **Telegram / Twilio call** | carrier audio → server → Gemini Live (server-side WS) | Gemini Live | back through server → carrier | similar |
-| **App classic mode / Telegram chat** | browser speech recognition, or typed text, or voice note (Gemini transcription) | `lib/brain.js`: Gemini Flash (thinkingBudget 0), Claude fallback | Gemini TTS (`lib/tts.js`), cached | 2–3 s |
+| **App classic mode / Telegram chat** | browser speech recognition, or typed text, or voice note (Groq Whisper / Gemini transcription) | `lib/brain.js`: Claude (`talkModel`), Gemini Flash fallback | Gemini TTS (`lib/tts.js`), cached | 4–8 s on the CLI |
 
 Details of audio formats and the WebSocket protocols: [AUDIO-BRIDGING.md](AUDIO-BRIDGING.md).
 
@@ -98,7 +99,7 @@ Full detail: [BACKGROUND-JOBS.md](BACKGROUND-JOBS.md).
 |---|---|---|---|
 | Call/chat transcripts | `$VAULT/00-Inbox/calls/YYYY-MM-DD-calls.md` | live | everything below |
 | Recent conversation | last 2 days of transcripts (16k chars, 8k for chat) | per turn | Live setup, chat turns |
-| Long-term memory | `20-Areas/Coco/memory.md` | nightly at `memoryHour` (Gemini pass over new lines) | calls, chat, jobs |
+| Long-term memory | `20-Areas/Coco/memory.md` | nightly at `memoryHour` (Claude pass over new lines) | calls, chat, jobs |
 | Standing rules | `20-Areas/Coco/rules.md` | `remember` tool + nightly pass | calls, chat, jobs |
 | Open loops | `$DATA/loops.json` | nightly | morning nudge, digest "Needs you" |
 | Semantic index | `$DATA/semantic/` (gemini-embedding-001, 768 d) | hourly | `vault.smartSearch` (keyword + meaning×1.5) |
