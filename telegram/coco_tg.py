@@ -263,6 +263,9 @@ class Service:
                             fut = self.pending.get(m.get('id'))
                             if fut and not fut.done():
                                 fut.set_result(m.get('text') or '')
+                            # A message that carried a secret (/key ...): remove it from the chat for both sides.
+                            if m.get('delete') and self.owner_id and str(m.get('id', '')).startswith('m'):
+                                asyncio.create_task(self.client.delete_messages(self.owner_id, [int(m['id'][1:])], revoke=True))
                         elif t == 'send' and self.owner_id:
                             asyncio.create_task(self.send_text(m.get('text') or '', bool(m.get('html'))))
                         elif t == 'send_file' and self.owner_id:
