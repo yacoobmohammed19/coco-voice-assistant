@@ -4,7 +4,7 @@
 const CocoLive = (() => {
   let ws = null, ctx = null, stream = null, node = null, src = null;
   let callId = null, playing = [], nextTime = 0, muted = false, ending = false;
-  let heard = '', saidBuf = '', heardBuf = '', capTimer = null;
+  let heard = '', saidBuf = '', heardBuf = '', capTimer = null, budgetOut = false;
   let ui = {};
 
   const b64 = (buf) => {
@@ -74,7 +74,20 @@ const CocoLive = (() => {
     if (ending && !playing.length) setTimeout(() => { if (!playing.length) hangup(); }, 4000);
   }
 
+  // Gemini's token counts go to the PC, which keeps the budget; when today's share is spent Coco wraps up.
+  async function reportUsage(meta) {
+    try {
+      const r = await (await fetch('/api/live/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ callId, meta }) })).json();
+      if (r.stop && !budgetOut && ws && ws.readyState === 1) {
+        budgetOut = true;
+        ws.send(JSON.stringify({ clientContent: { turns: [{ role: 'user', parts: [{ text: "(System: today's voice budget is used up. Say a short goodbye now and suggest he texts on Telegram, then use end_call.)" }] }], turnComplete: true } }));
+        clearTimeout(capTimer); capTimer = setTimeout(hangup, 60_000);
+      }
+    } catch {}
+  }
+
   function onMessage(m) {
+    if (m.usageMetadata) reportUsage(m.usageMetadata);
     if (m.setupComplete) {
       ui.state('listening', 'Connected');
       return;
@@ -107,7 +120,7 @@ const CocoLive = (() => {
 
   async function start(opts) {
     ui = opts.ui;
-    ending = false; muted = false; heard = ''; saidBuf = ''; heardBuf = '';
+    ending = false; muted = false; budgetOut = false; heard = ''; saidBuf = ''; heardBuf = '';
     // Audio context + mic must start inside the tap on iPhone.
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     await ctx.resume();
