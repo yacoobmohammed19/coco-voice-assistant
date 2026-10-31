@@ -567,7 +567,7 @@ function jobsContext() {
 }
 
 const CHANNEL_NOTES = {
-  telegram: 'CHANNEL: this conversation is a Telegram TEXT chat, not a voice call. Write like a quick text from a sharp colleague: short, casual, line breaks are fine, links and file paths ARE fine here, no headings. Ignore the speech-only rules about URLs.',
+  telegram: 'CHANNEL: this conversation is a Telegram TEXT chat, not a voice call. Write like a quick text from a sharp colleague: short, casual, line breaks are fine, links and file paths ARE fine here, no headings. Ignore the speech-only rules about URLs and reply length: for a complex question give a full, well-reasoned answer in chat (still no headings), not a job.',
 };
 const PERSONA_NOTES = {
   jarvis: 'PERSONA: JARVIS from Iron Man: polished, understated British English, calm and unflappable, faintly dry wit; "sir" now and then. Keep it brief.',
