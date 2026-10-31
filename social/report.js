@@ -255,9 +255,10 @@ function summary(d) {
     d.alerts.length ? `\n⚠️ ${d.alerts.join('\n⚠️ ')}` : '\n✅ All clear for tomorrow.'].join('\n');
 }
 
-// Build HTML + PDF for a day. Returns { html, pdf, summary, data }.
-async function build(date = content.sastDate()) {
+// Build the report for a day. Returns { html, pdf, summary, data }. HTML/PDF only with { pdf: true }.
+async function build(date = content.sastDate(), { pdf: wantPdf = true } = {}) {
   const d = await gather(date);
+  if (!wantPdf) return { html: null, pdf: null, summary: summary(d), data: d };
   const htmlFile = path.join(OUT, `${date}.html`), pdfFile = path.join(PDF_DIR, `CocoCorp Social Report ${date}.pdf`);
   fs.writeFileSync(htmlFile, html(d));
   let pdf = null;

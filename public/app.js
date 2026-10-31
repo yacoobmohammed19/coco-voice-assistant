@@ -283,8 +283,11 @@ function listen() {
   rec.continuous = false;
   let finalText = '';
   rec.onresult = (e) => {
+    // Rebuild from the full list each time: Chrome on Android re-delivers final results, and appending
+    // them made the same sentence get sent twice ("book a table book a table").
     let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
+    finalText = '';
+    for (let i = 0; i < e.results.length; i++) {
       if (e.results[i].isFinal) finalText += e.results[i][0].transcript; else interim += e.results[i][0].transcript;
     }
     $('status').textContent = interim || finalText || 'Listening…';

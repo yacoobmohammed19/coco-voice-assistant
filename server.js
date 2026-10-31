@@ -74,9 +74,18 @@ async function adminDone(j) {
 }
 
 // Send the files a job produced (its outbox folder) to the owner's Telegram, after the summary.
+// PDFs and HTML pages only go out when he asked for that format (The owner, 2026-10-31: "no PDFs or HTML
+// unless I ask"). The prompt says so too; this is the backstop for when the worker ignores it.
+const PDF_HTML = /\.(pdf|html?)$/i;
+const askedForPdfHtml = (j) => /\b(pdf|html?|web ?page|website|site|landing)\b/i.test(`${j.title} ${j.brief}`);
 function deliverJobFiles(j) {
   let files = [];
   try { files = fs.readdirSync(jobs.outboxFor(j.id)).map((f) => path.join(jobs.outboxFor(j.id), f)).filter((f) => fs.statSync(f).isFile()); } catch { return; }
+  if (!askedForPdfHtml(j)) {
+    const held = files.filter((f) => PDF_HTML.test(f));
+    if (held.length) console.log(`[jobs] ${j.id}: not sending ${held.length} PDF/HTML file(s) he didn't ask for`);
+    files = files.filter((f) => !PDF_HTML.test(f));
+  }
   files.slice(0, 10).forEach((f, i) => setTimeout(() => {
     const r = telegram.sendFile(f, i === 0 ? `From: ${j.title}` : '');
     if (r.error) telegram.message(`Couldn't send ${path.basename(f)}: ${r.error}`);
@@ -236,7 +245,7 @@ const WA_SWEEP_BRIEF = (since) => `WhatsApp sweep: the owner runs a lot of his w
 1. Read it all with mcp__coco-whatsapp__whatsapp_since (since: "${since}"). Read more of a chat (whatsapp_read_chat) whenever you need context. Check the vault, CRM, calendar and email for context on people and projects.
 2. For every conversation, decide what the owner needs and DO the safe parts now:
    - Someone is waiting on a reply from him: draft it in his voice (short, warm, direct; match the language and tone of the chat) and stage it with whatsapp_stage_message. Never claim something is done if it isn't. Family/personal chats: only draft when a reply is clearly expected.
-   - Someone asked for something (a quote, document, info, a link, a time): prepare it (Google Doc/Sheet, PDF, CRM lookup, Drive link) and stage a reply that includes it.
+   - Someone asked for something (a quote, document, info, a link, a time): prepare it (Google Doc/Sheet, CRM lookup, Drive link; a PDF only if they asked for a PDF) and stage a reply that includes it.
    - Promises, deadlines, meetings, payments due, things to chase: add follow-up reminders (followups.json) at sensible times, and add the item to today's daily note (50-Daily/YYYY-MM-DD.md, "## WhatsApp" section).
    - New leads or client info: log/update them in CocoCRM (leads, notes, follow-ups are safe) and in the matching vault notes (clients, projects, people). Capture decisions, prices, dates and addresses.
    - Anything that needs his yes (invoices, payments, deploys, commitments, sharing files with others): don't do it; list it under "Needs you".
@@ -386,13 +395,14 @@ async function reportTick() {
   let r = null;
   if (social.configured()) {
     try {
-      r = await socialReport.build();
-      const tg = telegram.sendFile(r.pdf, r.summary);
-      if (tg.error) console.error('[report] Telegram:', tg.error);
-    } catch (e) { console.error('[report]', e.message); telegram.message(`⚠️ Today's social report PDF failed: ${e.message}`); }
+      // Text summary by default; the branded PDF only when he turns socialReportPdf on.
+      r = await socialReport.build(undefined, { pdf: !!cfg.socialReportPdf });
+      if (r.pdf) { const tg = telegram.sendFile(r.pdf, r.summary); if (tg.error) console.error('[report] Telegram:', tg.error); }
+      else telegram.message(r.summary);
+    } catch (e) { console.error('[report]', e.message); telegram.message(`⚠️ Today's social report failed: ${e.message}`); }
   }
   const since = c.digestAt || new Date(Date.now() - 24 * 3600_000).toISOString();
-  const d = await digest.build(cfg, jobs.all(), since, { socialSummary: r?.summary });
+  const d = await digest.build(cfg, jobs.all(), since, { socialSummary: r?.summary, socialPdf: !!r?.pdf });
   if (d.empty) return;
   const mail = await digest.send(d, r?.pdf ? [r.pdf] : []);
   if (mail.sent) { c.digestAt = new Date().toISOString(); saveCycle(c); }
@@ -567,7 +577,7 @@ function jobsContext() {
 }
 
 const CHANNEL_NOTES = {
-  telegram: 'CHANNEL: this conversation is a Telegram TEXT chat, not a voice call. Write like a quick text from a sharp colleague: short, casual, line breaks are fine, links and file paths ARE fine here, no headings. Ignore the speech-only rules about URLs.',
+  telegram: 'CHANNEL: this conversation is a Telegram TEXT chat, not a voice call. Write like a quick text from a sharp colleague: short, casual, line breaks are fine, links and file paths ARE fine here, no headings. Ignore the speech-only rules about URLs and reply length: for a complex question give a full, well-reasoned answer in chat (still no headings), not a job.',
 };
 const PERSONA_NOTES = {
   jarvis: 'PERSONA: JARVIS from Iron Man: polished, understated British English, calm and unflappable, faintly dry wit; "sir" now and then. Keep it brief.',
